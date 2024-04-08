@@ -27,16 +27,6 @@ class UserInfo {
     private String province;
     private String country;
     private String avatarUrl;
-    public UserInfo(String jsonString) {
-        JSONObject jsonObject = JSONObject.parseObject(jsonString);
-        this.nickName = jsonObject.getString("nickName");
-        this.gender = jsonObject.getInteger("gender");
-        this.language = jsonObject.getString("language");
-        this.city = jsonObject.getString("city");
-        this.province = jsonObject.getString("province");
-        this.country = jsonObject.getString("country");
-        this.avatarUrl = jsonObject.getString("avatarUrl");
-    }
     public String toJSONString() {
         LinkedHashMap<String, Object> jsonMap = new LinkedHashMap<>();
         jsonMap.put("nickName", this.nickName);
@@ -104,12 +94,6 @@ class UserInfo {
     }
 }
 
-/**
- * @program: demo
- * @description
- * @author: chenshuofang
- * @create: 2020-08-07 09:27
- **/
 @RestController
 @RequestMapping
 public class UserController {
