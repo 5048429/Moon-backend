@@ -10,7 +10,6 @@ import com.example.demo2.util.GlobalResult;
 import com.example.demo2.util.WechatUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -26,7 +25,18 @@ class UserInfo {
     private String city;
     private String province;
     private String country;
-    private String avatarUrl;
+    private String avatarUrl;   
+    public UserInfo(String json) {
+        JSONObject jsonObject = JSONObject.parseObject(json);
+        this.nickName = jsonObject.getString("nickName");
+        this.gender = jsonObject.getIntValue("gender");
+        this.language = jsonObject.getString("language");
+        this.city = jsonObject.getString("city");
+        this.province = jsonObject.getString("province");
+        this.country = jsonObject.getString("country");
+        this.avatarUrl = jsonObject.getString("avatarUrl");
+    }
+
     public String toJSONString() {
         LinkedHashMap<String, Object> jsonMap = new LinkedHashMap<>();
         jsonMap.put("nickName", this.nickName);
