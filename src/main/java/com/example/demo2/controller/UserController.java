@@ -216,4 +216,42 @@ public class UserController {
     public GlobalResult logout() {
         return GlobalResult.build(200, (String) null, (Object) null);
     }
+    @PostMapping("/getinfo")
+    @ResponseBody
+    public JSONObject getInfoBySkey(@RequestBody JSONObject requestJson) {
+        JSONObject result = new JSONObject();
+        logger.info("收到请求信息: {}", requestJson.toJSONString());
+
+        try {
+            // 从JSON请求体中获取skey
+            String skey = requestJson.getString("skey");
+            if (skey == null || skey.isEmpty()) {
+                result.put("code", -1);
+                result.put("message", "缺少skey参数");
+                return result;
+            }
+
+            // 根据skey查询用户信息
+            User user = userRepository.findBySkey(skey);
+            if (user != null) {
+                // 如果找到用户，构建返回的JSON对象
+                result.put("code", 200);
+                result.put("message", "成功获取用户信息");
+                result.put("openid", user.getOpenId());
+                result.put("nick_name", user.getNickName());
+                result.put("avatar_url", user.getAvatarUrl());
+                result.put("original_date", user.getOriginalDate());
+            } else {
+                // 如果没有找到用户，返回错误信息
+                result.put("code", -1);
+                result.put("message", "用户不存在或skey错误");
+            }
+        } catch (Exception e) {
+            logger.error("查询用户信息出错", e);
+            result.put("code", -2);
+            result.put("message", "系统错误");
+        }
+        return result;
+
+    }
 }

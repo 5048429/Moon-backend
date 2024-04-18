@@ -40,4 +40,9 @@ public class User {
     @JoinColumn(name = "nick_name")
     private String nickName;
 
+    @Temporal(TemporalType.DATE)
+    @JsonFormat(pattern="yyyy-MM-dd") //格式化日期
+    private Date originalDate;
+
+
 }
