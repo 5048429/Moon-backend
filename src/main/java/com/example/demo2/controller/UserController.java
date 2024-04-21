@@ -1,5 +1,7 @@
 package com.example.demo2.controller;
 
+import com.example.demo2.entity.ToDo;
+import com.example.demo2.mapper.TodoMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -16,9 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.UUID;
+import java.util.*;
 
 class UserInfo {
     public UserInfo(String json) {
@@ -115,6 +115,8 @@ public class UserController {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private TodoMapper todoMapper;
 
     static class LoginRequest {
         private String code;
@@ -268,4 +270,69 @@ public class UserController {
         return GlobalResult.build(200, "更新日期成功", null);
     }
 
+    static class ToDoRequest{
+        private String openId;
+
+        public String getOpenId() {
+            return openId;
+        }
+
+        public void setOpenId(String openId) {
+            this.openId = openId;
+        }
+    }
+
+    @PostMapping("/whatToDo")
+    public GlobalResult GetWhatToDoByOpenId(@RequestBody ToDoRequest request){
+        String openId = request.getOpenId();
+        logger.error("用户{}", openId);
+        User user = userRepository.findByOpenId(openId);
+        if (user == null) {
+            logger.error("未找到用户: {}", openId);
+            return GlobalResult.build(404, "用户不存在", null);
+        }
+
+        Date originaldate = user.getOriginalDate();
+        Calendar calendar = Calendar.getInstance();
+        Date today = calendar.getTime();
+
+        long millisecondsPerDay = 24 * 60 * 60 * 1000;  // 一天的毫秒数
+        long daysBetween = (today.getTime() - originaldate.getTime()) / millisecondsPerDay;
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        int dateAsInteger = Integer.parseInt(dateFormat.format(today));
+
+        if(daysBetween < 1){
+            logger.error("当前日期早于开始日期 {}", daysBetween);
+            return GlobalResult.build(404, "当前日期早于开始日期", null);
+        }
+
+        List<ToDo> WhatToDo = new ArrayList<>();
+
+        int day = (int) daysBetween;
+        if(day > 0 && day <=7){
+            WhatToDo = todoMapper.GetWhatToDoByDay(day);
+        }
+        else if(day <=43){
+            int a = day / 7 * 7 +1;
+            WhatToDo = todoMapper.GetWhatToDoByDay(a);
+        }
+        else{
+            logger.error("当前日期超出建议范围");
+        }
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("currentDay", day);
+        jsonObject.put("WhatToDo", WhatToDo);
+
+        return GlobalResult.build(200, "查询成功",jsonObject);
+    }
+
+    @GetMapping("/setTest")
+    public String setTest(){
+        for(int i=0;i<100;i++){
+            String s = "今天应该做第"+i+"天该做的事";
+            todoMapper.SetTest(i,s);
+        }
+        return "success";
+    }
 }
