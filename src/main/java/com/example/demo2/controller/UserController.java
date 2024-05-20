@@ -1,7 +1,11 @@
 package com.example.demo2.controller;
 
+import com.example.demo2.entity.ToDo;
+import com.example.demo2.mapper.TodoMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.alibaba.fastjson.JSONObject;
 import com.example.demo2.entity.User;
@@ -10,22 +14,13 @@ import com.example.demo2.util.GlobalResult;
 import com.example.demo2.util.WechatUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.UUID;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 class UserInfo {
-    public UserInfo() {
-        // 默认无参构造函数
-    }
-    private String nickName;
-    private int gender;
-    private String language;
-    private String city;
-    private String province;
-    private String country;
-    private String avatarUrl;   
     public UserInfo(String json) {
         JSONObject jsonObject = JSONObject.parseObject(json);
         this.nickName = jsonObject.getString("nickName");
@@ -36,7 +31,16 @@ class UserInfo {
         this.country = jsonObject.getString("country");
         this.avatarUrl = jsonObject.getString("avatarUrl");
     }
-
+    public UserInfo() {
+        // 默认无参构造函数
+    }
+    private String nickName;
+    private int gender;
+    private String language;
+    private String city;
+    private String province;
+    private String country;
+    private String avatarUrl;
     public String toJSONString() {
         LinkedHashMap<String, Object> jsonMap = new LinkedHashMap<>();
         jsonMap.put("nickName", this.nickName);
@@ -111,6 +115,8 @@ public class UserController {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private TodoMapper todoMapper;
 
     static class LoginRequest {
         private String code;
@@ -216,42 +222,117 @@ public class UserController {
     public GlobalResult logout() {
         return GlobalResult.build(200, (String) null, (Object) null);
     }
-    @PostMapping("/getinfo")
-    @ResponseBody
-    public JSONObject getInfoBySkey(@RequestBody JSONObject requestJson) {
-        JSONObject result = new JSONObject();
-        logger.info("收到请求信息: {}", requestJson.toJSONString());
 
-        try {
-            // 从JSON请求体中获取skey
-            String skey = requestJson.getString("skey");
-            if (skey == null || skey.isEmpty()) {
-                result.put("code", -1);
-                result.put("message", "缺少skey参数");
-                return result;
-            }
+    static class CalendarRequest {
+        private String openId;
+        private String originalDate;
 
-            // 根据skey查询用户信息
-            User user = userRepository.findBySkey(skey);
-            if (user != null) {
-                // 如果找到用户，构建返回的JSON对象
-                result.put("code", 200);
-                result.put("message", "成功获取用户信息");
-                result.put("openid", user.getOpenId());
-                result.put("nick_name", user.getNickName());
-                result.put("avatar_url", user.getAvatarUrl());
-                result.put("original_date", user.getOriginalDate());
-            } else {
-                // 如果没有找到用户，返回错误信息
-                result.put("code", -1);
-                result.put("message", "用户不存在或skey错误");
-            }
-        } catch (Exception e) {
-            logger.error("查询用户信息出错", e);
-            result.put("code", -2);
-            result.put("message", "系统错误");
+        public String getOpenId() {
+            return openId;
         }
-        return result;
 
+        public void setOpenId(String openId) {
+            this.openId = openId;
+        }
+
+        public String getOriginalDate() {
+            return originalDate;
+        }
+
+        public void setOriginalDate(String originalDate) {
+            this.originalDate = originalDate;
+        }
+    }
+
+    @PostMapping("/calender")
+    public GlobalResult updateOriginalDate(@RequestBody CalendarRequest request) {
+        String openId = request.getOpenId();
+        String originalDateString = request.getOriginalDate();
+
+        Date originalDate = null;
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+            originalDate = format.parse(originalDateString); //将字符串转换为日期
+        } catch (ParseException e) {
+            logger.error("日期格式错误: {}", originalDateString);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GlobalResult.build(400, "日期格式错误", null)).getBody();
+        }
+
+        User user = userRepository.findByOpenId(openId);
+        if (user == null) {
+            logger.error("未找到用户: {}", openId);
+            return GlobalResult.build(404, "用户不存在", null);
+        }
+
+        user.setOriginalDate(originalDate);
+        userRepository.save(user);
+        logger.info("更新用户 {} 的生产日期为 {}", openId, originalDate);
+        return GlobalResult.build(200, "更新日期成功", null);
+    }
+
+    static class ToDoRequest{
+        private String openId;
+
+        public String getOpenId() {
+            return openId;
+        }
+
+        public void setOpenId(String openId) {
+            this.openId = openId;
+        }
+    }
+
+    @PostMapping("/whatToDo")
+    public GlobalResult GetWhatToDoByOpenId(@RequestBody ToDoRequest request){
+        String openId = request.getOpenId();
+        logger.error("用户{}", openId);
+        User user = userRepository.findByOpenId(openId);
+        if (user == null) {
+            logger.error("未找到用户: {}", openId);
+            return GlobalResult.build(404, "用户不存在", null);
+        }
+
+        Date originaldate = user.getOriginalDate();
+        Calendar calendar = Calendar.getInstance();
+        Date today = calendar.getTime();
+
+        long millisecondsPerDay = 24 * 60 * 60 * 1000;  // 一天的毫秒数
+        long daysBetween = (today.getTime() - originaldate.getTime()) / millisecondsPerDay;
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        int dateAsInteger = Integer.parseInt(dateFormat.format(today));
+
+        if(daysBetween < 1){
+            logger.error("当前日期早于开始日期 {}", daysBetween);
+            return GlobalResult.build(404, "当前日期早于开始日期", null);
+        }
+
+        List<ToDo> WhatToDo = new ArrayList<>();
+
+        int day = (int) daysBetween;
+        if(day > 0 && day <=7){
+            WhatToDo = todoMapper.GetWhatToDoByDay(day);
+        }
+        else if(day <=43){
+            int a = day / 7 * 7 +1;
+            WhatToDo = todoMapper.GetWhatToDoByDay(a);
+        }
+        else{
+            logger.error("当前日期超出建议范围");
+        }
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("currentDay", day);
+        jsonObject.put("WhatToDo", WhatToDo);
+
+        return GlobalResult.build(200, "查询成功",jsonObject);
+    }
+
+    @GetMapping("/setTest")
+    public String setTest(){
+        for(int i=0;i<100;i++){
+            String s = "今天应该做第"+i+"天该做的事";
+            todoMapper.SetTest(i,s);
+        }
+        return "success";
     }
 }

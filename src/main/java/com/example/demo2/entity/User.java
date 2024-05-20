@@ -39,10 +39,8 @@ public class User {
     private Integer gender;
     @JoinColumn(name = "nick_name")
     private String nickName;
-
+    @Column(name = "original_date")
     @Temporal(TemporalType.DATE)
     @JsonFormat(pattern="yyyy-MM-dd") //格式化日期
     private Date originalDate;
-
-
 }
